@@ -1,0 +1,7 @@
+substitutions:
+  # Spécific Music Assistant entity
+  music_assistant_player_entity: media_player.raspiaudio_radio_music_a98048_2
+
+packages:
+  # Main code
+  radio_base: github://RASPIAUDIO/esphomeRadioMusic/radio_music_base.yaml@main

@@ -1,0 +1,1727 @@
+substitutions:
+  # Valeur par défaut de l'entité (sera écrasée par la config de l'utilisateur final)
+  music_assistant_player_entity: "media_player.raspiaudio_radio_music"
+  
+  # Liens vers image Logo et son de démarrage
+  logo_url: "https://raw.githubusercontent.com/RASPIAUDIO/esphomeRadioMusic/main/images/Raspiaudio.png"
+  startup_sound_url: "https://raw.githubusercontent.com/RASPIAUDIO/esphomeRadioMusic/main/sounds/sounds_timer_finished.wav"
+
+esphome:
+  name: radio-music
+  friendly_name: Raspiaudio Radio Music
+  min_version: 2026.1.0
+  name_add_mac_suffix: true
+  
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          id(startup_logo_until_ms) = millis() + 5000;
+      - output.turn_off: dac_mute
+      - light.turn_on:
+          id: screen_backlight
+          brightness: 100%
+      - script.execute: led_red
+      - script.execute: apply_codec_volume
+      
+  project:
+    name: radio.music-assistant
+    version: "2026.1.1"  
+    
+esp32:
+  board: esp32-s3-devkitc-1
+  flash_size: 8MB
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+
+logger:
+  level: debug
+
+api:
+  on_client_connected:
+    - lambda: |-
+        if (!id(boot_sound_played)) {
+          id(boot_sound_played) = true;
+          if (id(startup_sound_switch).state) {
+            // Lecture du son de démarrage depuis l'URL HTTP
+            id(play_sound)->execute(true, std::string("${startup_sound_url}"));
+          }
+        }
+        
+font:
+  - file:
+      type: gfonts
+      family: Figtree
+      weight: 500
+    id: ui_font_album
+    size: 22
+    glyphs:
+      - " "
+      - "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      - "abcdefghijklmnopqrstuvwxyz"
+      - "0123456789"
+      - ".,;:!?-_/\\()[]{}<>|@#&+=*\"'%"
+      - "°"
+      - "àâäáãåçéèêëíìîïñóòôöõúùûüýÿ"
+      - "ÀÂÄÁÃÅÇÉÈÊËÍÌÎÏÑÓÒÔÖÕÚÙÛÜÝ"
+      - "œŒæÆ"
+  - file:
+      type: gfonts
+      family: Figtree
+      weight: 600
+    id: ui_font_title
+    size: 28
+    glyphs:
+      - " "
+      - "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      - "abcdefghijklmnopqrstuvwxyz"
+      - "0123456789"
+      - ".,;:!?-_/\\()[]{}<>|@#&+=*\"'%"
+      - "°"
+      - "àâäáãåçéèêëíìîïñóòôöõúùûüýÿ"
+      - "ÀÂÄÁÃÅÇÉÈÊËÍÌÎÏÑÓÒÔÖÕÚÙÛÜÝ"
+      - "œŒæÆ"
+  - file:
+      type: gfonts
+      family: Figtree
+      weight: 500
+    id: ui_font_meta
+    size: 18
+    glyphs:
+      - " "
+      - "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      - "abcdefghijklmnopqrstuvwxyz"
+      - "0123456789"
+      - ".,;:!?-_/\\()[]{}<>|@#&+=*\"'%"
+      - "°"
+      - "àâäáãåçéèêëíìîïñóòôöõúùûüýÿ"
+      - "ÀÂÄÁÃÅÇÉÈÊËÍÌÎÏÑÓÒÔÖÕÚÙÛÜÝ"
+      - "œŒæÆ"
+
+image:
+  # L'image est téléchargée depuis internet au moment de la compilation
+  - file: ${logo_url}
+    id: startup_logo
+    resize: 320x240
+    type: RGB
+
+color:
+  - id: ui_bg
+    hex: "08131F"
+  - id: ui_header
+    hex: "12314A"
+  - id: ui_panel
+    hex: "0E2235"
+  - id: ui_footer
+    hex: "163A54"
+  - id: ui_accent
+    hex: "E4B95B"
+  - id: ui_text
+    hex: "F2F6F9"
+  - id: ui_text_muted
+    hex: "A7BECE"
+  - id: ui_bar_bg
+    hex: "24455E"
+  - id: ui_bar_fill
+    hex: "79D4C8"
+
+wifi:
+  ap:
+    ssid: "radiomusic"
+    password: "12345678"
+
+psram:
+  mode: octal
+  speed: 80MHz
+  
+ota:                 
+  - platform: esphome
+    id: ota_esphome
+
+http_request:
+  
+captive_portal:
+
+improv_serial: 
+
+external_components:
+  - source: github://RASPIAUDIO/esphomeRadio@main
+    components: [es8388]
+    refresh: 0s
+  - source:
+      type: git
+      url: https://github.com/esphome/esphome
+      ref: 7f34908569650e5a8b8c83e6bf89fea561218880
+    components: [mixer]
+  - source:
+      type: git
+      url: https://github.com/esphome/esphome
+      ref: 6006b896a691ad38d8045ac67564c168973d1a1d
+    components: [resampler]
+  - source:
+      type: git
+      url: https://github.com/esphome/esphome
+      ref: 9148832ea4e54907bad71a24d4ced1ce6c862433
+    components: [audio]
+  - source:
+      type: git
+      url: https://github.com/esphome/esphome
+      ref: bff22983a390352360796f8e1363127e0cd1f898
+    components: [media_player]
+  - source:
+      type: git
+      url: https://github.com/esphome/esphome
+      ref: a6c0a861a014e64c67d46115eba8e5370777b80a
+    components: [mdns, sendspin]
+  - source:
+      type: git
+      url: https://github.com/esphome/esphome
+      ref: 928204066ce0082404573ea1c6a0b58aeebbd7c6
+    refresh: 0s
+    # Retrait du composant "file" ici
+    components: [http_request, media_source, speaker_source]
+
+
+es8388:
+  
+i2c:
+  id: codec_bus
+  sda: GPIO18
+  scl: GPIO11
+  scan: true
+  frequency: 100kHz
+i2c_device:
+  id: my_es8388
+  address: 0x10
+
+spi:
+  - id: spi_bus0
+    clk_pin: GPIO12
+    mosi_pin: GPIO8
+    interface: hardware
+   
+display:
+  - platform: ili9xxx
+    id: my_display
+    model: ST7789V
+    cs_pin: GPIO40
+    dc_pin: GPIO39
+    reset_pin: GPIO9
+    invert_colors: true
+    rotation: 90
+    update_interval: never
+    auto_clear_enabled: false
+    lambda: |-
+      const uint32_t now = millis();
+      if (now < id(startup_logo_until_ms)) {
+        it.image(0, 0, id(startup_logo));
+        return;
+      }
+
+      auto text_width = [&](display::BaseFont *font, const std::string &text) -> int {
+        int x1, y1, width, height;
+        it.get_text_bounds(0, 0, text.c_str(), font, TextAlign::TOP_LEFT, &x1, &y1, &width, &height);
+        return width;
+      };
+      auto fit_chars_to_width = [&](display::BaseFont *font, const std::string &text, int max_width) -> int {
+        if (text.empty()) return 0;
+        int fitted = 0;
+        for (size_t len = 1; len <= text.size(); len++) {
+          if (text_width(font, text.substr(0, len)) > max_width) break;
+          fitted = len;
+        }
+        if (fitted == 0) return 1;
+        return fitted;
+      };
+      auto scroll_text = [&](display::BaseFont *font, const std::string &text, int max_width,
+                             bool &is_scrolling) -> std::string {
+        is_scrolling = false;
+        if (text.empty()) return std::string("");
+        const int visible_chars = fit_chars_to_width(font, text, max_width);
+        if ((int) text.size() <= visible_chars) return text;
+        is_scrolling = true;
+        const int max_offset = text.size() - visible_chars;
+        const int pause_steps = 3;
+        const int step = (now / 750);
+        const int cycle = max_offset + 1 + pause_steps;
+        int offset = cycle > 0 ? (step % cycle) : 0;
+        if (offset > max_offset) offset = max_offset;
+        return text.substr(offset, visible_chars);
+      };
+      auto truncate_text = [&](display::BaseFont *font, const std::string &text, int max_width) -> std::string {
+        if (text.empty()) return std::string("");
+        if (text_width(font, text) <= max_width) return text;
+        std::string ellipsis = "...";
+        int fitted = fit_chars_to_width(font, text, max_width);
+        while (fitted > 1 && text_width(font, text.substr(0, fitted) + ellipsis) > max_width) {
+          fitted--;
+        }
+        if (fitted <= 1) return text.substr(0, 1);
+        return text.substr(0, fitted) + ellipsis;
+      };
+      auto is_valid = [&](const std::string &text) -> bool {
+        return !text.empty() && text != "unknown" && text != "unavailable" && text != "None";
+      };
+      auto format_duration = [&](int total_seconds) -> std::string {
+        if (total_seconds <= 0) return std::string("");
+        int hours = total_seconds / 3600;
+        int minutes = (total_seconds % 3600) / 60;
+        int seconds = total_seconds % 60;
+        char buffer[16];
+        if (hours > 0) {
+          snprintf(buffer, sizeof(buffer), "%d:%02d:%02d", hours, minutes, seconds);
+        } else {
+          snprintf(buffer, sizeof(buffer), "%02d:%02d", minutes, seconds);
+        }
+        return std::string(buffer);
+      };
+
+      std::string content_id = id(ma_media_content_id).state;
+      std::string title = id(ma_media_title).state;
+      std::string artist = id(ma_media_artist).state;
+      std::string album_name = id(ma_media_album_name).state;
+      std::string duration_text = id(ma_duration_text).state;
+      float duration_seconds = id(ma_media_duration).state;
+      float volume_level = id(ma_volume_level).state;
+      const uint32_t content_ts = id(meta_content_change_ms);
+      const uint32_t title_stale_slack_ms = 500;
+      const uint32_t radio_meta_stale_slack_ms = 1500;
+      const uint32_t duration_stale_slack_ms = 1500;
+
+      if (!is_valid(content_id)) content_id = "";
+      if (!is_valid(title)) title = "";
+      if (!is_valid(artist)) artist = "";
+      if (!is_valid(album_name)) album_name = "";
+      if (!is_valid(duration_text)) duration_text = "";
+      if (volume_level != volume_level) volume_level = id(Vol);
+      const bool is_radio = content_id.find("radio") != std::string::npos;
+      if (content_ts > 0) {
+        if (id(meta_title_update_ms) + title_stale_slack_ms < content_ts) title = "";
+        if (is_radio) {
+          if (id(meta_album_update_ms) + radio_meta_stale_slack_ms < content_ts) album_name = "";
+          if (id(meta_artist_update_ms) + radio_meta_stale_slack_ms < content_ts) artist = "";
+        }
+        if (id(meta_duration_update_ms) + duration_stale_slack_ms < content_ts) {
+          duration_text = "";
+          duration_seconds = -1.0f;
+        }
+      }
+
+      std::string duration_line = duration_text;
+      if (duration_line.empty() && duration_seconds == duration_seconds && duration_seconds > 0.5f) {
+        duration_line = format_duration(int(duration_seconds + 0.5f));
+      }
+
+      int vol_percent = int(volume_level * 100.0f + 0.5f);
+      if (vol_percent < 0) vol_percent = 0;
+      if (vol_percent > 100) vol_percent = 100;
+      std::string volume_line = "Vol " + std::to_string(vol_percent) + "%";
+      const int album_width = 280;
+      const int frame_width = 252;
+      std::string top_display;
+      std::string middle_display;
+      std::string bottom_source;
+      bool bottom_scrolling = false;
+
+      if (is_radio) {
+        if (album_name.empty()) {
+          middle_display = truncate_text(id(ui_font_title), title, frame_width);
+        } else {
+          middle_display = truncate_text(id(ui_font_title), album_name, frame_width);
+          if (!artist.empty() && !title.empty()) {
+            bottom_source = artist + "..." + title;
+          } else if (!artist.empty()) {
+            bottom_source = artist;
+          } else {
+            bottom_source = title;
+          }
+        }
+      } else {
+        top_display = truncate_text(id(ui_font_album), album_name, album_width);
+        middle_display = truncate_text(id(ui_font_title), artist, frame_width);
+        bottom_source = title;
+      }
+
+      std::string bottom_display = scroll_text(id(ui_font_meta), bottom_source, frame_width, bottom_scrolling);
+
+      it.filled_rectangle(0, 0, 320, 240, id(ui_bg));
+      it.filled_rectangle(0, 0, 320, 56, id(ui_header));
+      it.filled_rectangle(0, 56, 320, 3, id(ui_accent));
+      it.filled_rectangle(12, 74, 296, 98, id(ui_panel));
+      it.rectangle(12, 74, 296, 98, id(ui_accent));
+      it.filled_rectangle(12, 186, 296, 42, id(ui_footer));
+
+      if (!top_display.empty()) {
+        it.printf(160, 16, id(ui_font_album), id(ui_text), TextAlign::TOP_CENTER, "%s", top_display.c_str());
+      }
+      if (!middle_display.empty()) {
+        it.printf(160, 92, id(ui_font_title), id(ui_text), TextAlign::TOP_CENTER, "%s", middle_display.c_str());
+      }
+      if (!bottom_display.empty()) {
+        if (bottom_scrolling) {
+          it.printf(34, 132, id(ui_font_meta), id(ui_text_muted), "%s", bottom_display.c_str());
+        } else {
+          it.printf(160, 132, id(ui_font_meta), id(ui_text_muted), TextAlign::TOP_CENTER, "%s",
+                    bottom_display.c_str());
+        }
+      }
+      if (!duration_line.empty()) {
+        it.printf(20, 194, id(ui_font_meta), id(ui_text_muted), "%s", duration_line.c_str());
+      }
+      it.printf(214, 194, id(ui_font_meta), id(ui_text), "%s", volume_line.c_str());
+
+      const int bar_x = 20;
+      const int bar_y = 216;
+      const int bar_w = 280;
+      const int bar_h = 6;
+      int fill_w = int((bar_w * vol_percent) / 100.0f);
+      if (fill_w < 0) fill_w = 0;
+      if (fill_w > bar_w) fill_w = bar_w;
+      it.filled_rectangle(bar_x, bar_y, bar_w, bar_h, id(ui_bar_bg));
+      if (fill_w > 0) {
+        it.filled_rectangle(bar_x, bar_y, fill_w, bar_h, id(ui_bar_fill));
+      }
+
+text_sensor:
+  - platform: homeassistant
+    id: ma_media_content_id
+    entity_id: ${music_assistant_player_entity}
+    attribute: media_content_id
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(meta_content_change_ms) = millis();
+        - component.update: my_display
+  - platform: homeassistant
+    id: ma_media_title
+    entity_id: ${music_assistant_player_entity}
+    attribute: media_title
+    on_value:
+      then:
+        - lambda: |-
+            id(meta_title_update_ms) = millis();
+        - component.update: my_display
+  - platform: homeassistant
+    id: ma_media_artist
+    entity_id: ${music_assistant_player_entity}
+    attribute: media_artist
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(meta_artist_update_ms) = millis();
+        - component.update: my_display
+  - platform: homeassistant
+    id: ma_media_album_name
+    entity_id: ${music_assistant_player_entity}
+    attribute: media_album_name
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(meta_album_update_ms) = millis();
+        - component.update: my_display
+  - platform: homeassistant
+    id: ma_duration_text
+    entity_id: ${music_assistant_player_entity}
+    attribute: duration
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(meta_duration_update_ms) = millis();
+        - component.update: my_display
+      
+i2s_audio:
+  - id: i2s_audio_bus
+    i2s_lrclk_pin: GPIO16
+    i2s_bclk_pin: GPIO5
+    i2s_mclk_pin: GPIO0
+
+speaker:
+  - platform: i2s_audio
+    id: box_speaker
+    i2s_audio_id: i2s_audio_bus
+    i2s_dout_pin: GPIO17
+    dac_type: external
+    channel: stereo
+    sample_rate: 48000
+    bits_per_sample: 16bit
+    buffer_duration: 300ms
+
+  - platform: mixer
+    id: mixing_speaker
+    output_speaker: box_speaker
+    num_channels: 2
+    source_speakers:
+      - id: announcement_mixer_input
+      - id: media_mixer_input
+
+  - platform: resampler
+    id: media_resampling_input
+    output_speaker: media_mixer_input
+    sample_rate: 48000
+
+  - platform: resampler
+    id: announcement_resampling_input
+    output_speaker: announcement_mixer_input    
+    sample_rate: 48000
+
+sendspin:
+  id: sendspin_hub
+  task_stack_in_psram: true
+  kalman_process_error: 0.01
+
+media_source:
+  - platform: sendspin
+    id: sendspin_source
+  - platform: http_request
+    id: http_source
+    buffer_size: 500000
+    
+# Le composant file_source a été supprimé !
+
+media_player:
+  - platform: sendspin
+    id: sendspin_media_player
+  - platform: speaker_source
+    name: none
+    id: external_media_player
+    announcement_speaker: announcement_resampling_input
+    media_speaker: media_resampling_input
+
+    announcement_pipeline:
+      format: FLAC
+      num_channels: 1
+      sample_rate: 48000
+    media_pipeline:
+      format: FLAC
+      num_channels: 2      
+      sample_rate: 48000
+
+    volume_increment: 0.05
+    volume_min: 0.0
+    volume_max: 1.0
+    sources:
+      - http_source
+      - sendspin_source
+      # file_source a été supprimé ici aussi
+    on_state:
+      then:
+        - lambda: |-
+            using media_player::MediaPlayerState;
+            auto state = id(external_media_player).state;
+            if (
+              state == MediaPlayerState::MEDIA_PLAYER_STATE_PLAYING ||
+              state == MediaPlayerState::MEDIA_PLAYER_STATE_ANNOUNCING
+            ) {
+              id(led_green).execute();
+            } else {
+              id(led_red).execute();
+            }
+            
+            
+sensor:
+  - platform: homeassistant
+    id: ma_volume_level
+    entity_id: ${music_assistant_player_entity}
+    attribute: volume_level
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (x == x) {
+              id(Vol) = x;
+            }
+        - script.execute: apply_codec_volume
+        - component.update: my_display
+  - platform: homeassistant
+    id: ma_media_duration
+    entity_id: ${music_assistant_player_entity}
+    attribute: media_duration
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(meta_duration_update_ms) = millis();
+        - component.update: my_display
+  - platform: adc
+    id: button_adc
+    pin: GPIO1
+    attenuation: auto
+    update_interval: .1s
+    on_value_range:
+      - above: 3.0
+        then:
+          - binary_sensor.template.publish:
+              id: btn_confirm
+              state: OFF
+          - binary_sensor.template.publish:
+              id: btn_1
+              state: OFF
+          - binary_sensor.template.publish:
+              id: btn_2
+              state: OFF
+          - binary_sensor.template.publish:
+              id: btn_3
+              state: OFF
+      - above: 0.41
+        below: 0.45
+        then:
+          - binary_sensor.template.publish:
+              id: btn_3
+              state: ON
+      - above: 0.8
+        below: 0.84
+        then:
+          - binary_sensor.template.publish:
+              id: btn_confirm
+              state: ON
+      - above: 1.50
+        below: 1.61
+        then:
+          - binary_sensor.template.publish:
+              id: btn_1
+              state: ON
+      - above: 1.98
+        below: 2.03
+        then:
+          - binary_sensor.template.publish:
+              id: btn_2
+              state: ON
+  - platform: adc
+    pin: GPIO13
+    name: Battery voltage
+    id: battery_voltage
+    device_class: voltage
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+    state_class: measurement
+    entity_category: diagnostic
+    update_interval: 15s
+    attenuation: auto
+    filters:
+      - multiply: 2
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 4.58 -> 4.20
+      - exponential_moving_average:
+          alpha: 0.2
+          send_every: 2
+      - delta: 0.002
+    on_value:
+      then:
+        - sensor.template.publish:
+            id: battery_percent
+            state: !lambda "return x;"
+  - platform: template
+    name: Battery
+    id: battery_percent
+    device_class: battery
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    state_class: measurement
+    entity_category: diagnostic
+    update_interval: 15s
+    filters:
+      - calibrate_polynomial:
+          degree: 3
+          datapoints:
+            - 4.20 -> 100.0
+            - 4.13 -> 97.1
+            - 4.10 -> 94.2
+            - 4.07 -> 88.4
+            - 4.05 -> 82.7
+            - 4.04 -> 76.9
+            - 4.04 -> 71.1
+            - 4.01 -> 65.3
+            - 3.99 -> 59.5
+            - 3.95 -> 53.8
+            - 3.93 -> 48.0
+            - 3.91 -> 42.2
+            - 3.88 -> 36.4
+            - 3.86 -> 30.6
+            - 3.84 -> 24.9
+            - 3.82 -> 19.1
+            - 3.76 -> 13.3
+            - 3.73 -> 10.4
+            - 3.70 -> 7.5
+            - 3.64 -> 4.6
+            - 3.50 -> 1.7
+            - 3.00 -> 0.0
+      - lambda: return clamp(x, 0.0f, 100.0f);
+  - platform: rotary_encoder
+    name: "Volume"
+    id: volume_encoder
+    pin_a:
+      number: GPIO42
+      mode:
+        input: true
+        pullup: true
+    pin_b:
+      number: GPIO3
+      mode:
+        input: true
+        pullup: true
+    on_anticlockwise:
+      then:
+        - script.execute:
+            id: adjust_volume
+            delta: -0.05
+    on_clockwise:
+      then:
+        - script.execute:
+            id: adjust_volume
+            delta: 0.05
+script:
+  - id: apply_codec_volume
+    then:
+      - lambda: |-
+          int reg = 33;
+          int v = int(id(Vol) * 10.0f + 0.5f);
+          if (id(Vol) < 0.1f) {
+            reg = 23 + v;
+          }
+          id(my_es8388).write_byte(46, reg);
+          id(my_es8388).write_byte(47, reg);
+          id(my_es8388).write_byte(48, reg);
+          id(my_es8388).write_byte(49, reg);
+  - id: adjust_volume
+    parameters:
+      delta: float
+    then:
+      - light.turn_on:
+          id: screen_backlight
+          brightness: 100%
+      - lambda: |-
+          float scale = 1.0f;
+          if (id(Vol) < 0.03f) scale = 0.05f;
+          else if (id(Vol) < 0.10f) scale = 0.40f;
+          else if (id(Vol) < 0.30f) scale = 0.50f;
+          else if (id(Vol) < 0.50f) scale = 0.60f;
+
+          id(Vol) += delta * scale;
+          if (id(Vol) < 0.0f) id(Vol) = 0.0f;
+          if (id(Vol) > 1.0f) id(Vol) = 1.0f;
+          id(mute) = false;
+      - script.execute: apply_codec_volume
+      - media_player.volume_set:
+          id: external_media_player
+          volume: !lambda "return id(Vol);"
+      - delay: 100ms          
+      - component.update: my_display
+      
+  # Le script prend maintenant une URL
+  - id: play_sound
+    parameters:
+      priority: bool
+      sound_url: string
+    then:
+      - if:
+          condition:
+            lambda: return priority;
+          then:
+            - media_player.stop:
+                id: external_media_player
+                announcement: true
+      - lambda: |-
+          if ( (id(external_media_player).state != media_player::MediaPlayerState::MEDIA_PLAYER_STATE_ANNOUNCING ) || priority) {
+            id(external_media_player)
+              ->make_call()
+              // Passage direct de l'URL
+              .set_media_url(sound_url)
+              .set_announcement(true)
+              .perform();
+          }
+  - id: led_red
+    then:
+      - light.turn_on:
+          id: screen_backlight
+          brightness: 40%
+
+  - id: led_green
+    then:
+      - light.turn_on:
+          id: screen_backlight
+          brightness: 100%
+
+switch:
+  - platform: template
+    id: startup_sound_switch
+    name: Startup sound
+    icon: "mdi:card-text-outline"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+globals:
+  - id: startup_logo_until_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: boot_sound_played
+    type: bool
+    restore_value: no
+    initial_value: "false"
+  - id: Vol
+    type: float
+    initial_value: '0.6'    
+    restore_value: true
+  - id: phase
+    type: int
+    initial_value: '0'    
+  - id: mute  
+    type: bool
+    initial_value: 'false'  
+  - id: meta_content_change_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: meta_album_update_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: meta_artist_update_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: meta_title_update_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: meta_duration_update_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+
+interval:
+  - interval: 750ms
+    then:
+      - component.update: msubstitutions:
+  # Valeur par défaut de l'entité (sera écrasée par la config de l'utilisateur final)
+  music_assistant_player_entity: "media_player.remplacez_moi"
+  
+  # REMPLACEZ CES URLS PAR LES LIENS VERS VOTRE GITHUB
+  logo_url: "https://raw.githubusercontent.com/VOTRE_PSEUDO/VOTRE_REPO/main/images/Raspiaudio.png"
+  startup_sound_url: "https://raw.githubusercontent.com/VOTRE_PSEUDO/VOTRE_REPO/main/sounds/sounds_timer_finished.wav"
+
+esphome:
+  name: radio-music
+  friendly_name: Raspiaudio Radio Music
+  min_version: 2026.1.0
+  name_add_mac_suffix: true
+  
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          id(startup_logo_until_ms) = millis() + 5000;
+      - output.turn_off: dac_mute
+      - light.turn_on:
+          id: screen_backlight
+          brightness: 100%
+      - script.execute: led_red
+      - script.execute: apply_codec_volume
+      
+  project:
+    name: radio.music-assistant
+    version: "2026.1.1"  
+    
+esp32:
+  board: esp32-s3-devkitc-1
+  flash_size: 8MB
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+
+logger:
+  level: debug
+
+api:
+  on_client_connected:
+    - lambda: |-
+        if (!id(boot_sound_played)) {
+          id(boot_sound_played) = true;
+          if (id(startup_sound_switch).state) {
+            // Lecture du son de démarrage depuis l'URL HTTP
+            id(play_sound)->execute(true, std::string("${startup_sound_url}"));
+          }
+        }
+        
+font:
+  - file:
+      type: gfonts
+      family: Figtree
+      weight: 500
+    id: ui_font_album
+    size: 22
+    glyphs:
+      - " "
+      - "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      - "abcdefghijklmnopqrstuvwxyz"
+      - "0123456789"
+      - ".,;:!?-_/\\()[]{}<>|@#&+=*\"'%"
+      - "°"
+      - "àâäáãåçéèêëíìîïñóòôöõúùûüýÿ"
+      - "ÀÂÄÁÃÅÇÉÈÊËÍÌÎÏÑÓÒÔÖÕÚÙÛÜÝ"
+      - "œŒæÆ"
+  - file:
+      type: gfonts
+      family: Figtree
+      weight: 600
+    id: ui_font_title
+    size: 28
+    glyphs:
+      - " "
+      - "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      - "abcdefghijklmnopqrstuvwxyz"
+      - "0123456789"
+      - ".,;:!?-_/\\()[]{}<>|@#&+=*\"'%"
+      - "°"
+      - "àâäáãåçéèêëíìîïñóòôöõúùûüýÿ"
+      - "ÀÂÄÁÃÅÇÉÈÊËÍÌÎÏÑÓÒÔÖÕÚÙÛÜÝ"
+      - "œŒæÆ"
+  - file:
+      type: gfonts
+      family: Figtree
+      weight: 500
+    id: ui_font_meta
+    size: 18
+    glyphs:
+      - " "
+      - "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      - "abcdefghijklmnopqrstuvwxyz"
+      - "0123456789"
+      - ".,;:!?-_/\\()[]{}<>|@#&+=*\"'%"
+      - "°"
+      - "àâäáãåçéèêëíìîïñóòôöõúùûüýÿ"
+      - "ÀÂÄÁÃÅÇÉÈÊËÍÌÎÏÑÓÒÔÖÕÚÙÛÜÝ"
+      - "œŒæÆ"
+
+image:
+  # L'image est téléchargée depuis internet au moment de la compilation
+  - file: ${logo_url}
+    id: startup_logo
+    resize: 320x240
+    type: RGB
+
+color:
+  - id: ui_bg
+    hex: "08131F"
+  - id: ui_header
+    hex: "12314A"
+  - id: ui_panel
+    hex: "0E2235"
+  - id: ui_footer
+    hex: "163A54"
+  - id: ui_accent
+    hex: "E4B95B"
+  - id: ui_text
+    hex: "F2F6F9"
+  - id: ui_text_muted
+    hex: "A7BECE"
+  - id: ui_bar_bg
+    hex: "24455E"
+  - id: ui_bar_fill
+    hex: "79D4C8"
+
+wifi:
+  ap:
+    ssid: "radiomusic"
+    password: "12345678"
+
+psram:
+  mode: octal
+  speed: 80MHz
+  
+ota:                 
+  - platform: esphome
+    id: ota_esphome
+
+http_request:
+  
+captive_portal:
+
+improv_serial: 
+
+external_components:
+  - source: github://RASPIAUDIO/esphomeRadio@main
+    components: [es8388]
+    refresh: 0s
+  - source:
+      type: git
+      url: https://github.com/esphome/esphome
+      ref: 7f34908569650e5a8b8c83e6bf89fea561218880
+    components: [mixer]
+  - source:
+      type: git
+      url: https://github.com/esphome/esphome
+      ref: 6006b896a691ad38d8045ac67564c168973d1a1d
+    components: [resampler]
+  - source:
+      type: git
+      url: https://github.com/esphome/esphome
+      ref: 9148832ea4e54907bad71a24d4ced1ce6c862433
+    components: [audio]
+  - source:
+      type: git
+      url: https://github.com/esphome/esphome
+      ref: bff22983a390352360796f8e1363127e0cd1f898
+    components: [media_player]
+  - source:
+      type: git
+      url: https://github.com/esphome/esphome
+      ref: a6c0a861a014e64c67d46115eba8e5370777b80a
+    components: [mdns, sendspin]
+  - source:
+      type: git
+      url: https://github.com/esphome/esphome
+      ref: 928204066ce0082404573ea1c6a0b58aeebbd7c6
+    refresh: 0s
+    # Retrait du composant "file" ici
+    components: [http_request, media_source, speaker_source]
+
+
+es8388:
+  
+i2c:
+  id: codec_bus
+  sda: GPIO18
+  scl: GPIO11
+  scan: true
+  frequency: 100kHz
+i2c_device:
+  id: my_es8388
+  address: 0x10
+
+spi:
+  - id: spi_bus0
+    clk_pin: GPIO12
+    mosi_pin: GPIO8
+    interface: hardware
+   
+display:
+  - platform: ili9xxx
+    id: my_display
+    model: ST7789V
+    cs_pin: GPIO40
+    dc_pin: GPIO39
+    reset_pin: GPIO9
+    invert_colors: true
+    rotation: 90
+    update_interval: never
+    auto_clear_enabled: false
+    lambda: |-
+      const uint32_t now = millis();
+      if (now < id(startup_logo_until_ms)) {
+        it.image(0, 0, id(startup_logo));
+        return;
+      }
+
+      auto text_width = [&](display::BaseFont *font, const std::string &text) -> int {
+        int x1, y1, width, height;
+        it.get_text_bounds(0, 0, text.c_str(), font, TextAlign::TOP_LEFT, &x1, &y1, &width, &height);
+        return width;
+      };
+      auto fit_chars_to_width = [&](display::BaseFont *font, const std::string &text, int max_width) -> int {
+        if (text.empty()) return 0;
+        int fitted = 0;
+        for (size_t len = 1; len <= text.size(); len++) {
+          if (text_width(font, text.substr(0, len)) > max_width) break;
+          fitted = len;
+        }
+        if (fitted == 0) return 1;
+        return fitted;
+      };
+      auto scroll_text = [&](display::BaseFont *font, const std::string &text, int max_width,
+                             bool &is_scrolling) -> std::string {
+        is_scrolling = false;
+        if (text.empty()) return std::string("");
+        const int visible_chars = fit_chars_to_width(font, text, max_width);
+        if ((int) text.size() <= visible_chars) return text;
+        is_scrolling = true;
+        const int max_offset = text.size() - visible_chars;
+        const int pause_steps = 3;
+        const int step = (now / 750);
+        const int cycle = max_offset + 1 + pause_steps;
+        int offset = cycle > 0 ? (step % cycle) : 0;
+        if (offset > max_offset) offset = max_offset;
+        return text.substr(offset, visible_chars);
+      };
+      auto truncate_text = [&](display::BaseFont *font, const std::string &text, int max_width) -> std::string {
+        if (text.empty()) return std::string("");
+        if (text_width(font, text) <= max_width) return text;
+        std::string ellipsis = "...";
+        int fitted = fit_chars_to_width(font, text, max_width);
+        while (fitted > 1 && text_width(font, text.substr(0, fitted) + ellipsis) > max_width) {
+          fitted--;
+        }
+        if (fitted <= 1) return text.substr(0, 1);
+        return text.substr(0, fitted) + ellipsis;
+      };
+      auto is_valid = [&](const std::string &text) -> bool {
+        return !text.empty() && text != "unknown" && text != "unavailable" && text != "None";
+      };
+      auto format_duration = [&](int total_seconds) -> std::string {
+        if (total_seconds <= 0) return std::string("");
+        int hours = total_seconds / 3600;
+        int minutes = (total_seconds % 3600) / 60;
+        int seconds = total_seconds % 60;
+        char buffer[16];
+        if (hours > 0) {
+          snprintf(buffer, sizeof(buffer), "%d:%02d:%02d", hours, minutes, seconds);
+        } else {
+          snprintf(buffer, sizeof(buffer), "%02d:%02d", minutes, seconds);
+        }
+        return std::string(buffer);
+      };
+
+      std::string content_id = id(ma_media_content_id).state;
+      std::string title = id(ma_media_title).state;
+      std::string artist = id(ma_media_artist).state;
+      std::string album_name = id(ma_media_album_name).state;
+      std::string duration_text = id(ma_duration_text).state;
+      float duration_seconds = id(ma_media_duration).state;
+      float volume_level = id(ma_volume_level).state;
+      const uint32_t content_ts = id(meta_content_change_ms);
+      const uint32_t title_stale_slack_ms = 500;
+      const uint32_t radio_meta_stale_slack_ms = 1500;
+      const uint32_t duration_stale_slack_ms = 1500;
+
+      if (!is_valid(content_id)) content_id = "";
+      if (!is_valid(title)) title = "";
+      if (!is_valid(artist)) artist = "";
+      if (!is_valid(album_name)) album_name = "";
+      if (!is_valid(duration_text)) duration_text = "";
+      if (volume_level != volume_level) volume_level = id(Vol);
+      const bool is_radio = content_id.find("radio") != std::string::npos;
+      if (content_ts > 0) {
+        if (id(meta_title_update_ms) + title_stale_slack_ms < content_ts) title = "";
+        if (is_radio) {
+          if (id(meta_album_update_ms) + radio_meta_stale_slack_ms < content_ts) album_name = "";
+          if (id(meta_artist_update_ms) + radio_meta_stale_slack_ms < content_ts) artist = "";
+        }
+        if (id(meta_duration_update_ms) + duration_stale_slack_ms < content_ts) {
+          duration_text = "";
+          duration_seconds = -1.0f;
+        }
+      }
+
+      std::string duration_line = duration_text;
+      if (duration_line.empty() && duration_seconds == duration_seconds && duration_seconds > 0.5f) {
+        duration_line = format_duration(int(duration_seconds + 0.5f));
+      }
+
+      int vol_percent = int(volume_level * 100.0f + 0.5f);
+      if (vol_percent < 0) vol_percent = 0;
+      if (vol_percent > 100) vol_percent = 100;
+      std::string volume_line = "Vol " + std::to_string(vol_percent) + "%";
+      const int album_width = 280;
+      const int frame_width = 252;
+      std::string top_display;
+      std::string middle_display;
+      std::string bottom_source;
+      bool bottom_scrolling = false;
+
+      if (is_radio) {
+        if (album_name.empty()) {
+          middle_display = truncate_text(id(ui_font_title), title, frame_width);
+        } else {
+          middle_display = truncate_text(id(ui_font_title), album_name, frame_width);
+          if (!artist.empty() && !title.empty()) {
+            bottom_source = artist + "..." + title;
+          } else if (!artist.empty()) {
+            bottom_source = artist;
+          } else {
+            bottom_source = title;
+          }
+        }
+      } else {
+        top_display = truncate_text(id(ui_font_album), album_name, album_width);
+        middle_display = truncate_text(id(ui_font_title), artist, frame_width);
+        bottom_source = title;
+      }
+
+      std::string bottom_display = scroll_text(id(ui_font_meta), bottom_source, frame_width, bottom_scrolling);
+
+      it.filled_rectangle(0, 0, 320, 240, id(ui_bg));
+      it.filled_rectangle(0, 0, 320, 56, id(ui_header));
+      it.filled_rectangle(0, 56, 320, 3, id(ui_accent));
+      it.filled_rectangle(12, 74, 296, 98, id(ui_panel));
+      it.rectangle(12, 74, 296, 98, id(ui_accent));
+      it.filled_rectangle(12, 186, 296, 42, id(ui_footer));
+
+      if (!top_display.empty()) {
+        it.printf(160, 16, id(ui_font_album), id(ui_text), TextAlign::TOP_CENTER, "%s", top_display.c_str());
+      }
+      if (!middle_display.empty()) {
+        it.printf(160, 92, id(ui_font_title), id(ui_text), TextAlign::TOP_CENTER, "%s", middle_display.c_str());
+      }
+      if (!bottom_display.empty()) {
+        if (bottom_scrolling) {
+          it.printf(34, 132, id(ui_font_meta), id(ui_text_muted), "%s", bottom_display.c_str());
+        } else {
+          it.printf(160, 132, id(ui_font_meta), id(ui_text_muted), TextAlign::TOP_CENTER, "%s",
+                    bottom_display.c_str());
+        }
+      }
+      if (!duration_line.empty()) {
+        it.printf(20, 194, id(ui_font_meta), id(ui_text_muted), "%s", duration_line.c_str());
+      }
+      it.printf(214, 194, id(ui_font_meta), id(ui_text), "%s", volume_line.c_str());
+
+      const int bar_x = 20;
+      const int bar_y = 216;
+      const int bar_w = 280;
+      const int bar_h = 6;
+      int fill_w = int((bar_w * vol_percent) / 100.0f);
+      if (fill_w < 0) fill_w = 0;
+      if (fill_w > bar_w) fill_w = bar_w;
+      it.filled_rectangle(bar_x, bar_y, bar_w, bar_h, id(ui_bar_bg));
+      if (fill_w > 0) {
+        it.filled_rectangle(bar_x, bar_y, fill_w, bar_h, id(ui_bar_fill));
+      }
+
+text_sensor:
+  - platform: homeassistant
+    id: ma_media_content_id
+    entity_id: ${music_assistant_player_entity}
+    attribute: media_content_id
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(meta_content_change_ms) = millis();
+        - component.update: my_display
+  - platform: homeassistant
+    id: ma_media_title
+    entity_id: ${music_assistant_player_entity}
+    attribute: media_title
+    on_value:
+      then:
+        - lambda: |-
+            id(meta_title_update_ms) = millis();
+        - component.update: my_display
+  - platform: homeassistant
+    id: ma_media_artist
+    entity_id: ${music_assistant_player_entity}
+    attribute: media_artist
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(meta_artist_update_ms) = millis();
+        - component.update: my_display
+  - platform: homeassistant
+    id: ma_media_album_name
+    entity_id: ${music_assistant_player_entity}
+    attribute: media_album_name
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(meta_album_update_ms) = millis();
+        - component.update: my_display
+  - platform: homeassistant
+    id: ma_duration_text
+    entity_id: ${music_assistant_player_entity}
+    attribute: duration
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(meta_duration_update_ms) = millis();
+        - component.update: my_display
+      
+i2s_audio:
+  - id: i2s_audio_bus
+    i2s_lrclk_pin: GPIO16
+    i2s_bclk_pin: GPIO5
+    i2s_mclk_pin: GPIO0
+
+speaker:
+  - platform: i2s_audio
+    id: box_speaker
+    i2s_audio_id: i2s_audio_bus
+    i2s_dout_pin: GPIO17
+    dac_type: external
+    channel: stereo
+    sample_rate: 48000
+    bits_per_sample: 16bit
+    buffer_duration: 300ms
+
+  - platform: mixer
+    id: mixing_speaker
+    output_speaker: box_speaker
+    num_channels: 2
+    source_speakers:
+      - id: announcement_mixer_input
+      - id: media_mixer_input
+
+  - platform: resampler
+    id: media_resampling_input
+    output_speaker: media_mixer_input
+    sample_rate: 48000
+
+  - platform: resampler
+    id: announcement_resampling_input
+    output_speaker: announcement_mixer_input    
+    sample_rate: 48000
+
+sendspin:
+  id: sendspin_hub
+  task_stack_in_psram: true
+  kalman_process_error: 0.01
+
+media_source:
+  - platform: sendspin
+    id: sendspin_source
+  - platform: http_request
+    id: http_source
+    buffer_size: 500000
+    
+# Le composant file_source a été supprimé !
+
+media_player:
+  - platform: sendspin
+    id: sendspin_media_player
+  - platform: speaker_source
+    name: none
+    id: external_media_player
+    announcement_speaker: announcement_resampling_input
+    media_speaker: media_resampling_input
+
+    announcement_pipeline:
+      format: FLAC
+      num_channels: 1
+      sample_rate: 48000
+    media_pipeline:
+      format: FLAC
+      num_channels: 2      
+      sample_rate: 48000
+
+    volume_increment: 0.05
+    volume_min: 0.0
+    volume_max: 1.0
+    sources:
+      - http_source
+      - sendspin_source
+      # file_source a été supprimé ici aussi
+    on_state:
+      then:
+        - lambda: |-
+            using media_player::MediaPlayerState;
+            auto state = id(external_media_player).state;
+            if (
+              state == MediaPlayerState::MEDIA_PLAYER_STATE_PLAYING ||
+              state == MediaPlayerState::MEDIA_PLAYER_STATE_ANNOUNCING
+            ) {
+              id(led_green).execute();
+            } else {
+              id(led_red).execute();
+            }
+            
+            
+sensor:
+  - platform: homeassistant
+    id: ma_volume_level
+    entity_id: ${music_assistant_player_entity}
+    attribute: volume_level
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (x == x) {
+              id(Vol) = x;
+            }
+        - script.execute: apply_codec_volume
+        - component.update: my_display
+  - platform: homeassistant
+    id: ma_media_duration
+    entity_id: ${music_assistant_player_entity}
+    attribute: media_duration
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(meta_duration_update_ms) = millis();
+        - component.update: my_display
+  - platform: adc
+    id: button_adc
+    pin: GPIO1
+    attenuation: auto
+    update_interval: .1s
+    on_value_range:
+      - above: 3.0
+        then:
+          - binary_sensor.template.publish:
+              id: btn_confirm
+              state: OFF
+          - binary_sensor.template.publish:
+              id: btn_1
+              state: OFF
+          - binary_sensor.template.publish:
+              id: btn_2
+              state: OFF
+          - binary_sensor.template.publish:
+              id: btn_3
+              state: OFF
+      - above: 0.41
+        below: 0.45
+        then:
+          - binary_sensor.template.publish:
+              id: btn_3
+              state: ON
+      - above: 0.8
+        below: 0.84
+        then:
+          - binary_sensor.template.publish:
+              id: btn_confirm
+              state: ON
+      - above: 1.50
+        below: 1.61
+        then:
+          - binary_sensor.template.publish:
+              id: btn_1
+              state: ON
+      - above: 1.98
+        below: 2.03
+        then:
+          - binary_sensor.template.publish:
+              id: btn_2
+              state: ON
+  - platform: adc
+    pin: GPIO13
+    name: Battery voltage
+    id: battery_voltage
+    device_class: voltage
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+    state_class: measurement
+    entity_category: diagnostic
+    update_interval: 15s
+    attenuation: auto
+    filters:
+      - multiply: 2
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 4.58 -> 4.20
+      - exponential_moving_average:
+          alpha: 0.2
+          send_every: 2
+      - delta: 0.002
+    on_value:
+      then:
+        - sensor.template.publish:
+            id: battery_percent
+            state: !lambda "return x;"
+  - platform: template
+    name: Battery
+    id: battery_percent
+    device_class: battery
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    state_class: measurement
+    entity_category: diagnostic
+    update_interval: 15s
+    filters:
+      - calibrate_polynomial:
+          degree: 3
+          datapoints:
+            - 4.20 -> 100.0
+            - 4.13 -> 97.1
+            - 4.10 -> 94.2
+            - 4.07 -> 88.4
+            - 4.05 -> 82.7
+            - 4.04 -> 76.9
+            - 4.04 -> 71.1
+            - 4.01 -> 65.3
+            - 3.99 -> 59.5
+            - 3.95 -> 53.8
+            - 3.93 -> 48.0
+            - 3.91 -> 42.2
+            - 3.88 -> 36.4
+            - 3.86 -> 30.6
+            - 3.84 -> 24.9
+            - 3.82 -> 19.1
+            - 3.76 -> 13.3
+            - 3.73 -> 10.4
+            - 3.70 -> 7.5
+            - 3.64 -> 4.6
+            - 3.50 -> 1.7
+            - 3.00 -> 0.0
+      - lambda: return clamp(x, 0.0f, 100.0f);
+  - platform: rotary_encoder
+    name: "Volume"
+    id: volume_encoder
+    pin_a:
+      number: GPIO42
+      mode:
+        input: true
+        pullup: true
+    pin_b:
+      number: GPIO3
+      mode:
+        input: true
+        pullup: true
+    on_anticlockwise:
+      then:
+        - script.execute:
+            id: adjust_volume
+            delta: -0.05
+    on_clockwise:
+      then:
+        - script.execute:
+            id: adjust_volume
+            delta: 0.05
+script:
+  - id: apply_codec_volume
+    then:
+      - lambda: |-
+          int reg = 33;
+          int v = int(id(Vol) * 10.0f + 0.5f);
+          if (id(Vol) < 0.1f) {
+            reg = 23 + v;
+          }
+          id(my_es8388).write_byte(46, reg);
+          id(my_es8388).write_byte(47, reg);
+          id(my_es8388).write_byte(48, reg);
+          id(my_es8388).write_byte(49, reg);
+  - id: adjust_volume
+    parameters:
+      delta: float
+    then:
+      - light.turn_on:
+          id: screen_backlight
+          brightness: 100%
+      - lambda: |-
+          float scale = 1.0f;
+          if (id(Vol) < 0.03f) scale = 0.05f;
+          else if (id(Vol) < 0.10f) scale = 0.40f;
+          else if (id(Vol) < 0.30f) scale = 0.50f;
+          else if (id(Vol) < 0.50f) scale = 0.60f;
+
+          id(Vol) += delta * scale;
+          if (id(Vol) < 0.0f) id(Vol) = 0.0f;
+          if (id(Vol) > 1.0f) id(Vol) = 1.0f;
+          id(mute) = false;
+      - script.execute: apply_codec_volume
+      - media_player.volume_set:
+          id: external_media_player
+          volume: !lambda "return id(Vol);"
+      - delay: 100ms          
+      - component.update: my_display
+      
+  # Le script prend maintenant une URL
+  - id: play_sound
+    parameters:
+      priority: bool
+      sound_url: string
+    then:
+      - if:
+          condition:
+            lambda: return priority;
+          then:
+            - media_player.stop:
+                id: external_media_player
+                announcement: true
+      - lambda: |-
+          if ( (id(external_media_player).state != media_player::MediaPlayerState::MEDIA_PLAYER_STATE_ANNOUNCING ) || priority) {
+            id(external_media_player)
+              ->make_call()
+              // Passage direct de l'URL
+              .set_media_url(sound_url)
+              .set_announcement(true)
+              .perform();
+          }
+  - id: led_red
+    then:
+      - light.turn_on:
+          id: screen_backlight
+          brightness: 40%
+
+  - id: led_green
+    then:
+      - light.turn_on:
+          id: screen_backlight
+          brightness: 100%
+
+switch:
+  - platform: template
+    id: startup_sound_switch
+    name: Startup sound
+    icon: "mdi:card-text-outline"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+globals:
+  - id: startup_logo_until_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: boot_sound_played
+    type: bool
+    restore_value: no
+    initial_value: "false"
+  - id: Vol
+    type: float
+    initial_value: '0.6'    
+    restore_value: true
+  - id: phase
+    type: int
+    initial_value: '0'    
+  - id: mute  
+    type: bool
+    initial_value: 'false'  
+  - id: meta_content_change_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: meta_album_update_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: meta_artist_update_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: meta_title_update_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: meta_duration_update_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+
+interval:
+  - interval: 750ms
+    then:
+      - component.update: my_display
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO48
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    name: Button
+    on_press:
+      then:
+        - light.turn_on:
+            id: screen_backlight
+            brightness: 100%
+        - media_player.toggle: sendspin_media_player
+  - platform: template
+    name: "Radio 4"
+    id: btn_confirm
+    on_press:
+      - logger.log: "Radio 4 button pressed"
+  - platform: template
+    name: "Radio 1"
+    id: btn_1
+    on_press:
+      - logger.log: "Radio 1 button pressed"
+  - platform: template
+    name: "Radio 2"
+    id: btn_2
+    on_press:
+      - logger.log: "Radio 2 button pressed"
+  - platform: template
+    name: "Radio 3"
+    id: btn_3
+    on_press:
+      - logger.log: "Radio 3 button pressed"
+
+output:
+  - platform: gpio
+    id: dac_mute
+    pin:
+      number: GPIO46
+      inverted: true
+      mode:
+        output: true
+      ignore_strapping_warning: true
+  - platform: ledc
+    id: screen_backlight_pin
+    pin:
+      number: GPIO41
+      mode:
+        output: true
+
+light:
+  - platform: monochromatic
+    output: screen_backlight_pin
+    id: screen_backlight
+    name: Screen Backlight
+    restore_mode: ALWAYS_ONy_display
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO48
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    name: Button
+    on_press:
+      then:
+        - light.turn_on:
+            id: screen_backlight
+            brightness: 100%
+        - media_player.toggle: sendspin_media_player
+  - platform: template
+    name: "Radio 4"
+    id: btn_confirm
+    on_press:
+      - logger.log: "Radio 4 button pressed"
+  - platform: template
+    name: "Radio 1"
+    id: btn_1
+    on_press:
+      - logger.log: "Radio 1 button pressed"
+  - platform: template
+    name: "Radio 2"
+    id: btn_2
+    on_press:
+      - logger.log: "Radio 2 button pressed"
+  - platform: template
+    name: "Radio 3"
+    id: btn_3
+    on_press:
+      - logger.log: "Radio 3 button pressed"
+
+output:
+  - platform: gpio
+    id: dac_mute
+    pin:
+      number: GPIO46
+      inverted: true
+      mode:
+        output: true
+      ignore_strapping_warning: true
+  - platform: ledc
+    id: screen_backlight_pin
+    pin:
+      number: GPIO41
+      mode:
+        output: true
+
+light:
+  - platform: monochromatic
+    output: screen_backlight_pin
+    id: screen_backlight
+    name: Screen Backlight
+    restore_mode: ALWAYS_ON
