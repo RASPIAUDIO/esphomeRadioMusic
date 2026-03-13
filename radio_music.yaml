@@ -1,8 +1,7 @@
 substitutions:
-    startup_sound_file: ../esphomeLuxe/wav/sounds_timer_finished.wav
+    startup_sound_file: "https://raw.githubusercontent.com/RASPIAUDIO/esphomeRadioMusic/main/sounds/sounds_timer_finished.wav"
     music_assistant_player_entity: media_player.raspiaudio_radio_2
-    startup_logo_file: ../muse-radio-voice-satellite/images/Raspiaudio.png
-
+    startup_logo_file: "https://raw.githubusercontent.com/RASPIAUDIO/esphomeRadioMusic/main/images/Raspiaudio.png"
 esphome:
   name: radio-music
   friendly_name: Raspiaudio Radio Music
@@ -68,6 +67,18 @@ font:
   - file:
       type: gfonts
       family: Figtree
+      weight: 700
+    id: ui_font_tiny
+    size: 10
+    glyphs:
+      - " "
+      - "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      - "abcdefghijklmnopqrstuvwxyz"
+      - "0123456789"
+      - ".,;:!?-_/\\()[]{}<>|@#&+=*\"'%"
+  - file:
+      type: gfonts
+      family: Figtree
       weight: 600
     id: ui_font_title
     size: 28
@@ -87,6 +98,22 @@ font:
       weight: 500
     id: ui_font_meta
     size: 18
+    glyphs:
+      - " "
+      - "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      - "abcdefghijklmnopqrstuvwxyz"
+      - "0123456789"
+      - ".,;:!?-_/\\()[]{}<>|@#&+=*\"'%"
+      - "°"
+      - "àâäáãåçéèêëíìîïñóòôöõúùûüýÿ"
+      - "ÀÂÄÁÃÅÇÉÈÊËÍÌÎÏÑÓÒÔÖÕÚÙÛÜÝ"
+      - "œŒæÆ"
+  - file:
+      type: gfonts
+      family: Figtree
+      weight: 500
+    id: ui_font_small
+    size: 14
     glyphs:
       - " "
       - "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -123,6 +150,10 @@ color:
     hex: "24455E"
   - id: ui_bar_fill
     hex: "79D4C8"
+  - id: ui_batt_warn
+    hex: "E4B95B"
+  - id: ui_batt_low
+    hex: "D95C5C"
 
 wifi:
 #  ssid: 
@@ -321,7 +352,7 @@ display:
       int vol_percent = int(volume_level * 100.0f + 0.5f);
       if (vol_percent < 0) vol_percent = 0;
       if (vol_percent > 100) vol_percent = 100;
-      std::string volume_line = "Vol " + std::to_string(vol_percent) + "%";
+      std::string volume_line = std::to_string(vol_percent) + "%";
       const int album_width = 280;
       const int frame_width = 252;
       std::string top_display;
@@ -372,14 +403,55 @@ display:
         }
       }
       if (!duration_line.empty()) {
-        it.printf(20, 194, id(ui_font_meta), id(ui_text_muted), "%s", duration_line.c_str());
+        it.printf(298, 154, id(ui_font_small), id(ui_text_muted), TextAlign::TOP_RIGHT, "%s", duration_line.c_str());
       }
-      it.printf(214, 194, id(ui_font_meta), id(ui_text), "%s", volume_line.c_str());
+      auto draw_battery_icon = [&]() {
+        const int x = 274;
+        const int y = 198;
+        const int icon_width = 30;
+        const int icon_height = 10;
+        const int cap_width = 4;
+        const int cap_height = icon_height / 2;
+        const int inner_width = icon_width - 4;
+        const int inner_height = icon_height - 4;
 
-      const int bar_x = 20;
-      const int bar_y = 216;
-      const int bar_w = 280;
-      const int bar_h = 6;
+        it.rectangle(x, y, icon_width, icon_height, id(ui_text));
+        it.filled_rectangle(x + icon_width, y + (icon_height - cap_height) / 2, cap_width, cap_height, id(ui_text));
+        it.filled_rectangle(x + 2, y + 2, inner_width, inner_height, id(ui_bar_bg));
+
+        if (!id(battery_percent).has_state()) {
+          return;
+        }
+
+        float percent = id(battery_percent).state;
+        if (percent < 0.0f) percent = 0.0f;
+        if (percent > 100.0f) percent = 100.0f;
+
+        Color level_color = id(ui_bar_fill);
+        if (percent < 20.0f) {
+          level_color = id(ui_batt_low);
+        } else if (percent < 50.0f) {
+          level_color = id(ui_batt_warn);
+        }
+
+        int fill_width = static_cast<int>(inner_width * (percent / 100.0f) + 0.5f);
+        if (fill_width < 0) fill_width = 0;
+        if (fill_width > inner_width) fill_width = inner_width;
+        if (fill_width > 0) {
+          it.filled_rectangle(x + 2, y + 2, fill_width, inner_height, level_color);
+        }
+
+        it.printf(x + icon_width / 2, y + icon_height + 2, id(ui_font_tiny), id(ui_text_muted), TextAlign::TOP_CENTER,
+                  "%.0f%%", percent);
+      };
+
+      draw_battery_icon();
+      it.printf(24, 194, id(ui_font_meta), id(ui_text), "%s", volume_line.c_str());
+
+      const int bar_x = 78;
+      const int bar_y = 200;
+      const int bar_w = 184;
+      const int bar_h = 8;
       int fill_w = int((bar_w * vol_percent) / 100.0f);
       if (fill_w < 0) fill_w = 0;
       if (fill_w > bar_w) fill_w = bar_w;
