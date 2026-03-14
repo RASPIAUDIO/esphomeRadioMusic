@@ -8,7 +8,9 @@ It's a somewhat experimental application that will be improved based on user fee
 
 **To achieve full functionality** (*with a complete display of all the characteristics of what's being played*), you'll need to customize your software by compiling it (with the *esphome* command) and passing a specific parameter ("entity ID" which is the Music Assistant object containing all the audio characteristics to be displayed).
 
-For example, the Linux command to use is: ==> ***esphome -s music_assistant_player_entity <my_entity> run radio_music.yaml***
+For example, the Linux command to use is: 
+
+==> ***esphome -s music_assistant_player_entity <my_entity> run radio_music.yaml***
 
 ***<my_entity>*** looks like the following line: ***media_player.raspiaudio_radio_music_abcdef_2***
 
