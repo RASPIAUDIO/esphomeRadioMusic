@@ -1,29 +1,33 @@
-# esphomeRadioMusic
+# Radio Music Application (Experimental)
 
-***esphomeRadioMusic*** is an audio application that uses the Sendspin protocol within Music Assistant. It allows for *multiroom and synchronized* listening on several devices (for Raspiaudio: Luxe, MangaCast, and now Radio...).
+This is an experimental application that we are actively improving based on user feedback. 
 
-It's a somewhat experimental application that will be improved based on user feedback.
+Currently, you have two ways to install the app, depending on the level of detail you want on your display:
 
-**Currently,** if you use the pre-compiled binary (radio_music.bin) directly, you'll get a fully functional app, but with ***limited screen display*** (volume and battery level).
+## 1. The Quick Method (Basic Display)
 
-**To achieve full functionality** (*with a complete display of all the characteristics of what's being played*), you'll need to customize your software by compiling it (with the *esphome* command) and passing a specific parameter ("entity ID" which is the Music Assistant object containing all the audio characteristics to be displayed).
+If you flash the pre-compiled binary (`radio_music.bin`) directly, you will get a fully functional radio. However, the screen display will be limited to basic information: **volume** and **battery level**.
 
-For example, the Linux command to use is: 
+---
 
-==> ***esphome -s music_assistant_player_entity <my_entity> run radio_music.yaml***
+## 2. The Advanced Method (Full Display)
 
-***<my_entity>*** looks like the following line: ***media_player.raspiaudio_radio_music_abcdef_2***
+To unlock the full display—which shows all the details of the track currently playing—you need to compile the software yourself using ESPHome. This allows you to link the code to your specific Music Assistant player. 
 
-***How do you get the value of <my_entity>***?
+### Step A: Find your Entity ID
 
-It's simple, but for now, it can't be automated. 
+Currently, this step cannot be automated, so you will need to manually locate your radio's Entity ID in Home Assistant. 
 
-On your HA server, follow this path: 
+1. Open Home Assistant.
+2. Navigate to **Developer tools** > **States**.
+3. Look for an entity formatted like this: `media_player.raspiaudio_radio_music_abcdef_2`.
+4. Verify it is the correct entity by checking its state (it will show as **playing** or **idle** depending on your radio's activity).
 
-***Home Assistant --> Settings --> Developer tools --> States***
+### Step B: Compile with ESPHome
 
-There, you can easily identify the entity in question by its format (***see above***) and by its state ("playing" or "idle") depending on your radio's activity.
+Once you have your Entity ID, use the following Linux command to compile the software. Replace `<my_entity>` with the ID you found in Step A.
 
+<<<<<<< HEAD
 ***Try it and let me know what you think!***
 
 
@@ -38,3 +42,11 @@ There, you can easily identify the entity in question by its format (***see abov
 2. calcul parité ==> >> md5sum update_firmware.bin
 3. modifier avec le résultat la ligne "md5": de manifest_update.json
 /////////////////////////////////////////////////////////////////////////////////
+=======
+> **Example Command:**
+> ```bash
+> esphome -s music_assistant_player_entity <my_entity> run radio_music.yaml
+> ```
+
+Try it out and let me know what you think!
+>>>>>>> b7f809a3139ee065e33eeabf2d3c27a129d2f08a
