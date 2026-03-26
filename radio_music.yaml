@@ -1,6 +1,6 @@
 substitutions:
     startup_sound_file: "https://raw.githubusercontent.com/RASPIAUDIO/esphomeRadioMusic/main/sounds/sounds_timer_finished.wav"
-    music_assistant_player_entity: media_player.raspiaudio_radio_2
+    music_assistant_player_entity: media_player.raspiaudio_radio_music_3
     startup_logo_file: "https://raw.githubusercontent.com/RASPIAUDIO/esphomeRadioMusic/main/images/Raspiaudio.png"
 esphome:
   name: radio-music
@@ -22,7 +22,7 @@ esphome:
       
   project:
     name: radio.music-assistant
-    version: "2026.1.1"  
+    version: "2026.1.2"  
     
 esp32:
   board: esp32-s3-devkitc-1
@@ -33,7 +33,9 @@ esp32:
       CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
       CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
       CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
-
+    advanced:
+      include_builtin_idf_components:
+        - esp_http_client
 logger:
   level: debug
 
@@ -769,6 +771,7 @@ script:
           id(my_es8388).write_byte(48, reg);
           id(my_es8388).write_byte(49, reg);
   - id: adjust_volume
+    mode: single
     parameters:
       delta: float
     then:

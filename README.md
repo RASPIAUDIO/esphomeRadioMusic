@@ -25,3 +25,16 @@ On your HA server, follow this path:
 There, you can easily identify the entity in question by its format (***see above***) and by its state ("playing" or "idle") depending on your radio's activity.
 
 ***Try it and let me know what you think!***
+
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////
+// reminder UPDATE
+/////////////////////////////////////////////////////////////////////////////////
+(First Change the project version in the yaml file)
+1. .bin ..../.esphome/build/raspiaudio-radio/.pioenvs/raspiaudio-radio/firmware.ota.bin ===> update_firmware.bin
+2. calcul parité ==> >> md5sum update_firmware.bin
+3. modifier avec le résultat la ligne "md5": de manifest_update.json
+/////////////////////////////////////////////////////////////////////////////////
