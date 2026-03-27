@@ -1,11 +1,11 @@
 {
-  "name": "radio.music-assistant",
+  "name": "raspiaudio.radio-music-assistant",
   "version": "2026.1.2",
   "builds": [
     {
       "chipFamily": "ESP32-S3",
       "ota": {
-         "md5": "08e76f13a9523b49bdc39dbada7bb523",  
+         "md5": "c4ad424a4fb4ecbbc9e93f7375248b70",  
          "path": "https://raw.githubusercontent.com/RASPIAUDIO/esphomeRadioMusic/main/update_firmware.bin",
          "offset": 0,
          "summary": "Latest firmware: improved volume control"

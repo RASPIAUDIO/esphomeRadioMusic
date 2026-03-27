@@ -21,7 +21,7 @@ esphome:
       - script.execute: apply_codec_volume
       
   project:
-    name: radio.music-assistant
+    name: raspiaudio.radio-music-assistant
     version: "2026.1.2"  
     
 esp32:

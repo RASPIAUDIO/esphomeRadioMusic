@@ -26,9 +26,25 @@ Currently, this step cannot be automated, so you will need to manually locate yo
 ### Step B: Compile with ESPHome
 
 Once you have your Entity ID, use the following Linux command to compile the software. Replace `<my_entity>` with the ID you found in Step A.
+=======
+> **Example Command:**
+> ```bash
+> esphome -s music_assistant_player_entity <my_entity> run radio_music.yaml
+> ```
 
-<<<<<<< HEAD
+
 ***Try it and let me know what you think!***
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -42,11 +58,4 @@ Once you have your Entity ID, use the following Linux command to compile the sof
 2. calcul parité ==> >> md5sum update_firmware.bin
 3. modifier avec le résultat la ligne "md5": de manifest_update.json
 /////////////////////////////////////////////////////////////////////////////////
-=======
-> **Example Command:**
-> ```bash
-> esphome -s music_assistant_player_entity <my_entity> run radio_music.yaml
-> ```
 
-Try it out and let me know what you think!
->>>>>>> b7f809a3139ee065e33eeabf2d3c27a129d2f08a
