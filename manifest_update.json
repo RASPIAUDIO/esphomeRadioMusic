@@ -5,7 +5,7 @@
     {
       "chipFamily": "ESP32-S3",
       "ota": {
-         "md5": "c4ad424a4fb4ecbbc9e93f7375248b70",  
+         "md5": "a3454a3ac0384a7d1b69850fde8b1f26",  
          "path": "https://raw.githubusercontent.com/RASPIAUDIO/esphomeRadioMusic/main/update_firmware.bin",
          "offset": 0,
          "summary": "Latest firmware: improved volume control"

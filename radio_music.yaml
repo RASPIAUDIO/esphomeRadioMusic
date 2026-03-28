@@ -168,9 +168,19 @@ psram:
   mode: octal
   speed: 80MHz
   
+
+
 ota:                 
   - platform: esphome
     id: ota_esphome
+  - platform: http_request
+    id: ota_http_request  
+update:
+  - platform: http_request
+    id: update_http_request
+    name: Firmware
+    source: https://raw.githubusercontent.com/RASPIAUDIO/esphomeRadioMusic/main/manifest_update.json   
+
 
 http_request:
   
@@ -218,7 +228,7 @@ external_components:
       url: https://github.com/esphome/esphome
       ref: 928204066ce0082404573ea1c6a0b58aeebbd7c6
     refresh: 0s
-    components: [file, http_request, media_source, speaker_source]
+    components: [file, media_source, speaker_source]
 
 
 es8388:
@@ -556,9 +566,6 @@ sendspin:
 media_source:
   - platform: sendspin
     id: sendspin_source
-  - platform: http_request
-    id: http_source
-    buffer_size: 500000
   - platform: file
     id: file_source
     files:
@@ -587,7 +594,6 @@ media_player:
     volume_min: 0.0
     volume_max: 1.0
     sources:
-      - http_source
       - sendspin_source
       - file_source
     on_state:
