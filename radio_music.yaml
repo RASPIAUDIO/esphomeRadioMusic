@@ -193,29 +193,11 @@ external_components:
     components: [es8388]
     refresh: 0s
   - source:
-      # https://github.com/esphome/esphome/pull/12253
-      type: git
-      url: https://github.com/esphome/esphome
-      ref: 7f34908569650e5a8b8c83e6bf89fea561218880
-    components: [mixer]
-  - source:
-      # https://github.com/esphome/esphome/pull/12254
-      type: git
-      url: https://github.com/esphome/esphome
-      ref: 6006b896a691ad38d8045ac67564c168973d1a1d
-    components: [resampler]
-  - source:
       # https://github.com/esphome/esphome/pull/12256
       type: git
       url: https://github.com/esphome/esphome
       ref: 9148832ea4e54907bad71a24d4ced1ce6c862433
     components: [audio]
-  - source:
-      # https://github.com/esphome/esphome/pull/12258
-      type: git
-      url: https://github.com/esphome/esphome
-      ref: bff22983a390352360796f8e1363127e0cd1f898
-    components: [media_player]
   - source:
       # https://github.com/esphome/esphome/pull/12284
       type: git
