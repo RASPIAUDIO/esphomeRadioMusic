@@ -1,11 +1,13 @@
 substitutions:
     startup_sound_file: "https://raw.githubusercontent.com/RASPIAUDIO/esphomeRadioMusic/main/sounds/sounds_timer_finished.wav"
+    # Ancien identifiant conservé uniquement comme premier indice. Le firmware
+    # détecte désormais automatiquement l'entité Music Assistant réellement liée.
     music_assistant_player_entity: media_player.raspiaudio_radio_music_3
     startup_logo_file: "https://raw.githubusercontent.com/RASPIAUDIO/esphomeRadioMusic/main/images/Raspiaudio.png"
 esphome:
   name: radio-music
   friendly_name: Raspiaudio Radio Music
-  min_version: 2026.1.0
+  min_version: 2026.8.0
   name_add_mac_suffix: false
   
   on_boot:
@@ -19,10 +21,18 @@ esphome:
           brightness: 100%
       - script.execute: led_red
       - script.execute: apply_codec_volume
+      - speaker_source.set_playlist_delay:
+          id: external_media_player
+          pipeline: announcement
+          delay: 500ms
+      - speaker_source.set_playlist_delay:
+          id: external_media_player
+          pipeline: media
+          delay: 1500ms
       
   project:
     name: raspiaudio.radio-music-assistant
-    version: "2026.1.3"  
+    version: "2026.8.7"
     
 esp32:
   board: esp32-s3-devkitc-1
@@ -30,7 +40,6 @@ esp32:
   framework:
     type: esp-idf
     sdkconfig_options:
-      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
       CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
       CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
     advanced:
@@ -40,14 +49,27 @@ logger:
   level: warn
 
 api:
+  # Sendspin continue de fonctionner même sans client Home Assistant.
+  reboot_timeout: 0s
   on_client_connected:
-    - lambda: |-
-        if (!id(boot_sound_played)) {
-          id(boot_sound_played) = true;
-          if (id(startup_sound_switch).state) {
-            id(play_sound)->execute(true, std::string("ready_sound"));
-          }
-        }
+    - if:
+        condition:
+          lambda: return !id(boot_sound_played);
+        then:
+          - lambda: id(boot_sound_played) = true;
+          - delay: 5s
+          - if:
+              condition:
+                lambda: |-
+                  using media_player::MediaPlayerState;
+                  return id(startup_sound_switch).state &&
+                    id(external_media_player).state != MediaPlayerState::MEDIA_PLAYER_STATE_PLAYING &&
+                    id(external_media_player).state != MediaPlayerState::MEDIA_PLAYER_STATE_ANNOUNCING;
+              then:
+                - script.execute:
+                    id: play_sound
+                    priority: true
+                    sound_file: ready_sound
         
 font:
   - file:
@@ -128,7 +150,8 @@ font:
       - "œŒæÆ"
 
 image:
-  - file: ${startup_logo_file}
+  - platform: file
+    file: ${startup_logo_file}
     id: startup_logo
     resize: 320x240
     type: RGB
@@ -160,6 +183,7 @@ color:
 wifi:
 #  ssid: 
 #  password: 
+  power_save_mode: none
   ap:
     ssid: "radiomusic"
     password: "12345678"
@@ -189,46 +213,13 @@ captive_portal:
 improv_serial: 
 
 external_components:
-  - source: github://RASPIAUDIO/esphomeRadio@main
+  # Initialisation ES8388 spécifique à la Radio. La chaîne audio et Sendspin
+  # utilisent désormais exclusivement les composants natifs d'ESPHome.
+  - source:
+      type: git
+      url: https://github.com/RASPIAUDIO/esphomeRadio
+      ref: 187efd71c9682f92dc03d22c546e6dcb729c4c36
     components: [es8388]
-    refresh: 0s
-  - source:
-      # https://github.com/esphome/esphome/pull/12253
-      type: git
-      url: https://github.com/esphome/esphome
-      ref: 7f34908569650e5a8b8c83e6bf89fea561218880
-    components: [mixer]
-  - source:
-      # https://github.com/esphome/esphome/pull/12254
-      type: git
-      url: https://github.com/esphome/esphome
-      ref: 6006b896a691ad38d8045ac67564c168973d1a1d
-    components: [resampler]
-  - source:
-      # https://github.com/esphome/esphome/pull/12256
-      type: git
-      url: https://github.com/esphome/esphome
-      ref: 9148832ea4e54907bad71a24d4ced1ce6c862433
-    components: [audio]
-  - source:
-      # https://github.com/esphome/esphome/pull/12258
-      type: git
-      url: https://github.com/esphome/esphome
-      ref: bff22983a390352360796f8e1363127e0cd1f898
-    components: [media_player]
-  - source:
-      # https://github.com/esphome/esphome/pull/12284
-      type: git
-      url: https://github.com/esphome/esphome
-      ref: a6c0a861a014e64c67d46115eba8e5370777b80a
-    components: [mdns, sendspin]
-  - source:
-      # https://github.com/esphome/esphome/pull/12429
-      type: git
-      url: https://github.com/esphome/esphome
-      ref: 928204066ce0082404573ea1c6a0b58aeebbd7c6
-    refresh: 0s
-    components: [file, media_source, speaker_source]
 
 
 es8388:
@@ -250,7 +241,7 @@ spi:
     interface: hardware
    
 display:
-  - platform: ili9xxx
+  - platform: mipi_spi
     id: my_display
     model: ST7789V
     cs_pin: GPIO40
@@ -258,12 +249,21 @@ display:
     reset_pin: GPIO9
     invert_colors: true
     rotation: 90
+    data_rate: 40MHz
     update_interval: never
     auto_clear_enabled: false
     lambda: |-
       const uint32_t now = millis();
       if (now < id(startup_logo_until_ms)) {
         it.image(0, 0, id(startup_logo));
+        return;
+      }
+      if (now < id(preset_message_until_ms)) {
+        it.filled_rectangle(0, 0, 320, 240, id(ui_bg));
+        it.filled_rectangle(12, 74, 296, 92, id(ui_panel));
+        it.rectangle(12, 74, 296, 92, id(ui_accent));
+        it.printf(160, 104, id(ui_font_title), id(ui_text), TextAlign::TOP_CENTER, "%s",
+                  id(preset_message).c_str());
         return;
       }
 
@@ -274,10 +274,17 @@ display:
       };
       auto fit_chars_to_width = [&](display::BaseFont *font, const std::string &text, int max_width) -> int {
         if (text.empty()) return 0;
+        int low = 1;
+        int high = text.size();
         int fitted = 0;
-        for (size_t len = 1; len <= text.size(); len++) {
-          if (text_width(font, text.substr(0, len)) > max_width) break;
-          fitted = len;
+        while (low <= high) {
+          const int middle = low + (high - low) / 2;
+          if (text_width(font, text.substr(0, middle)) <= max_width) {
+            fitted = middle;
+            low = middle + 1;
+          } else {
+            high = middle - 1;
+          }
         }
         if (fitted == 0) return 1;
         return fitted;
@@ -325,39 +332,20 @@ display:
         return std::string(buffer);
       };
 
-      std::string content_id = id(ma_media_content_id).state;
       std::string title = id(ma_media_title).state;
       std::string artist = id(ma_media_artist).state;
       std::string album_name = id(ma_media_album_name).state;
-      std::string duration_text = id(ma_duration_text).state;
-      float duration_seconds = id(ma_media_duration).state;
-      float volume_level = id(ma_volume_level).state;
-      const uint32_t content_ts = id(meta_content_change_ms);
-      const uint32_t title_stale_slack_ms = 500;
-      const uint32_t radio_meta_stale_slack_ms = 1500;
-      const uint32_t duration_stale_slack_ms = 1500;
+      float duration_seconds = id(ma_media_duration).state / 1000.0f;
+      float volume_level = id(sendspin_media_player).volume;
 
-      if (!is_valid(content_id)) content_id = "";
       if (!is_valid(title)) title = "";
       if (!is_valid(artist)) artist = "";
       if (!is_valid(album_name)) album_name = "";
-      if (!is_valid(duration_text)) duration_text = "";
       if (volume_level != volume_level) volume_level = id(Vol);
-      const bool is_radio = content_id.find("radio") != std::string::npos;
-      if (content_ts > 0) {
-        if (id(meta_title_update_ms) + title_stale_slack_ms < content_ts) title = "";
-        if (is_radio) {
-          if (id(meta_album_update_ms) + radio_meta_stale_slack_ms < content_ts) album_name = "";
-          if (id(meta_artist_update_ms) + radio_meta_stale_slack_ms < content_ts) artist = "";
-        }
-        if (id(meta_duration_update_ms) + duration_stale_slack_ms < content_ts) {
-          duration_text = "";
-          duration_seconds = -1.0f;
-        }
-      }
+      const bool is_radio = !(duration_seconds == duration_seconds && duration_seconds > 0.5f);
 
-      std::string duration_line = duration_text;
-      if (duration_line.empty() && duration_seconds == duration_seconds && duration_seconds > 0.5f) {
+      std::string duration_line;
+      if (duration_seconds == duration_seconds && duration_seconds > 0.5f) {
         duration_line = format_duration(int(duration_seconds + 0.5f));
       }
 
@@ -473,55 +461,61 @@ display:
       }
 
 text_sensor:
-  - platform: homeassistant
-    id: ma_media_content_id
-    entity_id: ${music_assistant_player_entity}
-    attribute: media_content_id
-    internal: true
-    on_value:
-      then:
-        - lambda: |-
-            id(meta_content_change_ms) = millis();
-        - component.update: my_display
-  - platform: homeassistant
+  # Métadonnées reçues directement de Music Assistant par Sendspin.
+  - platform: sendspin
     id: ma_media_title
-    entity_id: ${music_assistant_player_entity}
-    attribute: media_title
-    on_value:
-      then:
-        - lambda: |-
-            id(meta_title_update_ms) = millis();
-        - component.update: my_display
-  - platform: homeassistant
+    type: title
+    internal: true
+  - platform: sendspin
     id: ma_media_artist
-    entity_id: ${music_assistant_player_entity}
-    attribute: media_artist
+    type: artist
     internal: true
-    on_value:
-      then:
-        - lambda: |-
-            id(meta_artist_update_ms) = millis();
-        - component.update: my_display
-  - platform: homeassistant
+  - platform: sendspin
     id: ma_media_album_name
-    entity_id: ${music_assistant_player_entity}
-    attribute: media_album_name
+    type: album
     internal: true
-    on_value:
-      then:
-        - lambda: |-
-            id(meta_album_update_ms) = millis();
-        - component.update: my_display
-  - platform: homeassistant
-    id: ma_duration_text
-    entity_id: ${music_assistant_player_entity}
-    attribute: duration
-    internal: true
-    on_value:
-      then:
-        - lambda: |-
-            id(meta_duration_update_ms) = millis();
-        - component.update: my_display
+text:
+  # Préréglages modifiables depuis la page de configuration de l'appareil dans HA.
+  - platform: template
+    id: radio_station_1
+    name: "Station bouton 1"
+    icon: mdi:radio
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    min_length: 0
+    max_length: 255
+    mode: text
+  - platform: template
+    id: radio_station_2
+    name: "Station bouton 2"
+    icon: mdi:radio
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    min_length: 0
+    max_length: 255
+    mode: text
+  - platform: template
+    id: radio_station_3
+    name: "Station bouton 3"
+    icon: mdi:radio
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    min_length: 0
+    max_length: 255
+    mode: text
+  - platform: template
+    id: radio_station_4
+    name: "Station bouton 4"
+    icon: mdi:radio
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    min_length: 0
+    max_length: 255
+    mode: text
       
 i2s_audio:
   - id: i2s_audio_bus
@@ -560,33 +554,45 @@ speaker:
 
 sendspin:
   id: sendspin_hub
-  task_stack_in_psram: true
-  kalman_process_error: 0.01
+
+audio_file:
+  - id: ready_sound
+    file: ${startup_sound_file}
 
 media_source:
   - platform: sendspin
     id: sendspin_source
     buffer_size: 2000000
-  - platform: file
+  - platform: audio_file
     id: file_source
-    files:
-      - id: ready_sound
-        file: ${startup_sound_file}
 
 media_player:
   - platform: sendspin
     id: sendspin_media_player
+    name: Raspiaudio Radio Music
+    volume_increment: 2%
+    on_state:
+      then:
+        - lambda: |-
+            const float volume = id(sendspin_media_player).volume;
+            if (volume == volume) id(Vol) = volume;
+        - script.execute: apply_codec_volume
   - platform: speaker_source
-    name: none
+    name: Radio Audio
     id: external_media_player
-    announcement_speaker: announcement_resampling_input
-    media_speaker: media_resampling_input
+    internal: true
 
     announcement_pipeline:
+      speaker: announcement_resampling_input
+      sources:
+        - file_source
       format: FLAC
       num_channels: 1
       sample_rate: 48000
     media_pipeline:
+      speaker: media_resampling_input
+      sources:
+        - sendspin_source
       format: FLAC
       num_channels: 2      
       sample_rate: 48000
@@ -594,9 +600,6 @@ media_player:
     volume_increment: 0.05
     volume_min: 0.0
     volume_max: 1.0
-    sources:
-      - sendspin_source
-      - file_source
     on_state:
       then:
         - lambda: |-
@@ -613,29 +616,10 @@ media_player:
             
             
 sensor:
-  - platform: homeassistant
-    id: ma_volume_level
-    entity_id: ${music_assistant_player_entity}
-    attribute: volume_level
-    internal: true
-    on_value:
-      then:
-        - lambda: |-
-            if (x == x) {
-              id(Vol) = x;
-            }
-        - script.execute: apply_codec_volume
-        - component.update: my_display
-  - platform: homeassistant
+  - platform: sendspin
     id: ma_media_duration
-    entity_id: ${music_assistant_player_entity}
-    attribute: media_duration
+    type: track_duration
     internal: true
-    on_value:
-      then:
-        - lambda: |-
-            id(meta_duration_update_ms) = millis();
-        - component.update: my_display
   - platform: adc
     id: button_adc
     pin: GPIO1
@@ -798,10 +782,131 @@ script:
           id(mute) = false;
       - script.execute: apply_codec_volume
       - media_player.volume_set:
-          id: external_media_player
+          id: sendspin_media_player
           volume: !lambda "return id(Vol);"
-      - delay: 100ms          
-      - component.update: my_display
+  - id: play_radio_preset
+    mode: restart
+    parameters:
+      station: string
+    then:
+      - if:
+          condition:
+            lambda: return station.find_first_not_of(" \t\r\n") != std::string::npos;
+          then:
+            # L'entité MA détectée lors de la première mémorisation est réutilisée.
+            # À défaut, HA cherche le lecteur MA dont le nom contient "radio".
+            - homeassistant.action:
+                action: media_player.play_media
+                data:
+                  media_content_type: radio
+                  enqueue: replace
+                data_template:
+                  entity_id: >-
+                    {% set configured = player_entity | trim %}
+                    {% if configured and states(configured) not in ['unknown', 'unavailable']
+                          and state_attr(configured, 'mass_player_type') is not none %}
+                      {{ configured }}
+                    {% else %}
+                      {% set ns = namespace(entity_id='') %}
+                      {% for player in states.media_player %}
+                        {% set label = (player.entity_id ~ ' ' ~ player.name) | lower %}
+                        {% if ns.entity_id == '' and player.attributes.mass_player_type is defined
+                              and 'radio' in label %}
+                          {% set ns.entity_id = player.entity_id %}
+                        {% endif %}
+                      {% endfor %}
+                      {{ ns.entity_id }}
+                    {% endif %}
+                  media_content_id: "{{ station_name }}"
+                variables:
+                  station_name: !lambda return station;
+                  player_entity: !lambda return id(ma_player_entity_id);
+          else:
+            - logger.log:
+                level: WARN
+                format: "Bouton radio ignoré : aucune station configurée"
+  - id: save_radio_preset
+    mode: restart
+    parameters:
+      preset: int
+    then:
+      - light.turn_on:
+          id: screen_backlight
+          brightness: 100%
+      # music_assistant.get_queue est une action de lecture seule. Sa réponse contient
+      # l'URI exacte de l'élément en cours et la véritable entité MA ciblée.
+      - homeassistant.action:
+          action: music_assistant.get_queue
+          data_template:
+            entity_id: >-
+              {% set configured = player_entity | trim %}
+              {% if configured and states(configured) not in ['unknown', 'unavailable']
+                    and state_attr(configured, 'mass_player_type') is not none %}
+                {{ configured }}
+              {% else %}
+                {% set ns = namespace(metadata='', named='') %}
+                {% for player in states.media_player %}
+                  {% if player.attributes.mass_player_type is defined
+                        and player.state not in ['unknown', 'unavailable'] %}
+                    {% set same_album = current_album | length > 0
+                          and player.attributes.media_album_name | default('') == current_album %}
+                    {% set same_title = current_title | length > 0
+                          and player.attributes.media_title | default('') == current_title %}
+                    {% set label = (player.entity_id ~ ' ' ~ player.name) | lower %}
+                    {% if ns.metadata == '' and (same_album or same_title) %}
+                      {% set ns.metadata = player.entity_id %}
+                    {% endif %}
+                    {% if ns.named == '' and 'radio' in label %}
+                      {% set ns.named = player.entity_id %}
+                    {% endif %}
+                  {% endif %}
+                {% endfor %}
+                {{ ns.metadata if ns.metadata else ns.named }}
+              {% endif %}
+          variables:
+            player_entity: !lambda return id(ma_player_entity_id);
+            current_title: !lambda return id(ma_media_title).state;
+            current_album: !lambda return id(ma_media_album_name).state;
+          capture_response: true
+          response_template: >-
+            {% set entity_id = response.keys() | list | first | default('') %}{% set item = response[entity_id].get('current_item') if entity_id else none %}{% set media_item = item.get('media_item') if item else none %}{% set uri = state_attr(entity_id, 'media_content_id') or (media_item.get('uri', '') if media_item else '') %}{{ entity_id }}|@|{{ uri }}
+          on_success:
+            - lambda: |-
+                const std::string payload = response["response"].as<std::string>();
+                const size_t separator = payload.find("|@|");
+                const std::string entity_id = separator == std::string::npos
+                    ? "" : payload.substr(0, separator);
+                const std::string uri = separator == std::string::npos
+                    ? "" : payload.substr(separator + 3);
+                const bool valid = !entity_id.empty() && !uri.empty() &&
+                                   uri.find("://") != std::string::npos;
+                if (!valid) {
+                  id(preset_message) = "AUCUNE RADIO";
+                  id(preset_message_until_ms) = millis() + 2500;
+                  ESP_LOGW("radio_preset", "Réponse MA sans station exploitable: %s", payload.c_str());
+                  return;
+                }
+
+                text::Text *target = nullptr;
+                if (preset == 1) target = id(radio_station_1);
+                else if (preset == 2) target = id(radio_station_2);
+                else if (preset == 3) target = id(radio_station_3);
+                else if (preset == 4) target = id(radio_station_4);
+                if (target == nullptr) return;
+
+                id(ma_player_entity_id) = entity_id;
+                auto call = target->make_call();
+                call.set_value(uri);
+                call.perform();
+                id(preset_message) = "MEMO " + std::to_string(preset) + " OK";
+                id(preset_message_until_ms) = millis() + 2500;
+                ESP_LOGW("radio_preset", "Station mémorisée sur le bouton %d via %s",
+                         preset, entity_id.c_str());
+          on_error:
+            - lambda: |-
+                id(preset_message) = "AUCUNE RADIO";
+                id(preset_message_until_ms) = millis() + 2500;
+                ESP_LOGW("radio_preset", "Lecture de la file MA impossible: %s", error.c_str());
   - id: play_sound
     parameters:
       priority: bool
@@ -818,7 +923,7 @@ script:
           if ( (id(external_media_player).state != media_player::MediaPlayerState::MEDIA_PLAYER_STATE_ANNOUNCING ) || priority) {
             id(external_media_player)
               ->make_call()
-              .set_media_url("file://" + sound_file)
+              .set_media_url("audio-file://" + sound_file)
               .set_announcement(true)
               .perform();
           }
@@ -852,6 +957,19 @@ globals:
     type: bool
     restore_value: no
     initial_value: "false"
+  - id: preset_message_until_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: preset_message
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: ma_player_entity_id
+    type: std::string
+    restore_value: yes
+    max_restore_data_length: 96
+    initial_value: '"${music_assistant_player_entity}"'
   - id: Vol
     type: float
     initial_value: '0.6'    
@@ -862,26 +980,6 @@ globals:
   - id: mute  
     type: bool
     initial_value: 'false'  
-  - id: meta_content_change_ms
-    type: uint32_t
-    restore_value: no
-    initial_value: '0'
-  - id: meta_album_update_ms
-    type: uint32_t
-    restore_value: no
-    initial_value: '0'
-  - id: meta_artist_update_ms
-    type: uint32_t
-    restore_value: no
-    initial_value: '0'
-  - id: meta_title_update_ms
-    type: uint32_t
-    restore_value: no
-    initial_value: '0'
-  - id: meta_duration_update_ms
-    type: uint32_t
-    restore_value: no
-    initial_value: '0'
 
 interval:
   - interval: 750ms
@@ -906,23 +1004,75 @@ binary_sensor:
   - platform: template
     name: "Radio 4"
     id: btn_confirm
-    on_press:
-      - logger.log: "Radio 4 button pressed"
+    filters:
+      - delayed_on_off: 30ms
+    on_click:
+      - min_length: 50ms
+        max_length: 1s
+        then:
+          - script.execute:
+              id: play_radio_preset
+              station: !lambda return id(radio_station_4).state;
+      - min_length: 1800ms
+        max_length: 8s
+        then:
+          - script.execute:
+              id: save_radio_preset
+              preset: 4
   - platform: template
     name: "Radio 1"
     id: btn_1
-    on_press:
-      - logger.log: "Radio 1 button pressed"
+    filters:
+      - delayed_on_off: 30ms
+    on_click:
+      - min_length: 50ms
+        max_length: 1s
+        then:
+          - script.execute:
+              id: play_radio_preset
+              station: !lambda return id(radio_station_1).state;
+      - min_length: 1800ms
+        max_length: 8s
+        then:
+          - script.execute:
+              id: save_radio_preset
+              preset: 1
   - platform: template
     name: "Radio 2"
     id: btn_2
-    on_press:
-      - logger.log: "Radio 2 button pressed"
+    filters:
+      - delayed_on_off: 30ms
+    on_click:
+      - min_length: 50ms
+        max_length: 1s
+        then:
+          - script.execute:
+              id: play_radio_preset
+              station: !lambda return id(radio_station_2).state;
+      - min_length: 1800ms
+        max_length: 8s
+        then:
+          - script.execute:
+              id: save_radio_preset
+              preset: 2
   - platform: template
     name: "Radio 3"
     id: btn_3
-    on_press:
-      - logger.log: "Radio 3 button pressed"
+    filters:
+      - delayed_on_off: 30ms
+    on_click:
+      - min_length: 50ms
+        max_length: 1s
+        then:
+          - script.execute:
+              id: play_radio_preset
+              station: !lambda return id(radio_station_3).state;
+      - min_length: 1800ms
+        max_length: 8s
+        then:
+          - script.execute:
+              id: save_radio_preset
+              preset: 3
 
 output:
   - platform: gpio

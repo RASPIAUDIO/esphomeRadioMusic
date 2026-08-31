@@ -1,61 +1,60 @@
-# Radio Music Application (Experimental)
+# RASPIAUDIO Radio Music Assistant / Sendspin
 
-This is an experimental application that we are actively improving based on user feedback. 
+Firmware ESPHome pour la RASPIAUDIO Radio à ESP32-S3, utilisable comme lecteur
+synchronisé Music Assistant grâce au protocole Sendspin.
 
-Currently, you have two ways to install the app, depending on the level of detail you want on your display:
+## Compatibilité
 
-## 1. The Quick Method (Basic Display)
+- ESPHome 2026.8.0 ou plus récent ;
+- Home Assistant avec l'intégration ESPHome ;
+- Music Assistant avec le fournisseur Sendspin.
 
-If you flash the pre-compiled binary (`radio_music.bin`) directly, you will get a fully functional radio. However, the screen display will be limited to basic information: **volume** and **battery level**.
+Sendspin, `speaker_source`, `audio_file`, le mixer et le resampler sont désormais
+les composants natifs d'ESPHome. Seule l'initialisation ES8388 spécifique à la
+Radio reste externe ; sa révision est épinglée dans le YAML afin de rendre les
+compilations reproductibles.
 
----
+Le Wi-Fi fonctionne sans économie d'énergie et la lecture continue si Home
+Assistant est momentanément indisponible.
 
-## 2. The Advanced Method (Full Display)
+## Affichage
 
-To unlock the full display—which shows all the details of the track currently playing—you need to compile the software yourself using ESPHome. This allows you to link the code to your specific Music Assistant player. 
+Le titre, l'artiste, l'album et la durée sont reçus directement de Music
+Assistant par Sendspin. Aucune entité Home Assistant ne doit être indiquée dans
+le YAML pour alimenter l'écran.
 
-### Step A: Find your Entity ID
+## Préréglages des quatre boutons radio
 
-Currently, this step cannot be automated, so you will need to manually locate your radio's Entity ID in Home Assistant. 
+La méthode recommandée fonctionne comme les mémoires d'un autoradio :
 
-1. Open Home Assistant.
-2. Navigate to **Developer tools** > **States**.
-3. Look for an entity formatted like this: `media_player.raspiaudio_radio_music_abcdef_2`.
-4. Verify it is the correct entity by checking its state (it will show as **playing** or **idle** depending on your radio's activity).
+1. lancer la station voulue dans Music Assistant sur la Radio ;
+2. maintenir le bouton choisi pendant environ deux secondes ;
+3. relâcher lorsque l'écran indique `MEMO x OK` ;
+4. utiliser ensuite un appui court pour rappeler cette station.
 
-### Step B: Compile with ESPHome
+La Radio interroge automatiquement la file Music Assistant en cours, mémorise
+l'URI exacte de la station et retient l'entité MA réellement associée à
+l'appareil. Elle ne dépend donc plus d'un nom d'entité codé en dur. Si aucune
+station n'est en cours ou si Home Assistant n'est pas joignable, l'écran indique
+`AUCUNE RADIO`. Aucun accès à la fiche de la station n'est nécessaire.
 
-Once you have your Entity ID, use the following Linux command to compile the software. Replace `<my_entity>` with the ID you found in Step A.
-=======
-> **Example Command:**
-> ```bash
-> esphome -s music_assistant_player_entity <my_entity> run radio_music.yaml
-> ```
+Les quatre champs `Station bouton 1` à `Station bouton 4` restent accessibles
+sous **Paramètres → Appareils et services → ESPHome → Raspiaudio Radio Music →
+Configuration** pour consulter ou modifier manuellement les préréglages. Les
+valeurs sont conservées par la Radio.
 
+Un appui sur le bouton correspondant lance directement la station sur l'entité
+Music Assistant détectée, sans automation Home Assistant. Dans la configuration
+de l'intégration ESPHome, activez une fois
+**Autoriser l'appareil à effectuer des actions Home Assistant**.
 
-***Try it and let me know what you think!***
+La configuration de test porte la version `2026.8.7`. Ne remplacez pas
+`update_firmware.bin`, `radio_music.bin` ni `manifest_update.json` avant la
+validation matérielle.
 
+## Publication après validation
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/////////////////////////////////////////////////////////////////////////////////
-// reminder UPDATE
-/////////////////////////////////////////////////////////////////////////////////
-(First Change the project version in the yaml file)
-1. .bin ..../.esphome/build/raspiaudio-radio/.pioenvs/raspiaudio-radio/firmware.ota.bin ===> update_firmware.bin
-2. calcul parité ==> >> md5sum update_firmware.bin
-3. modifier avec le résultat la ligne "md5": de manifest_update.json
-/////////////////////////////////////////////////////////////////////////////////
-
+1. Compiler `radio_music.yaml`.
+2. Copier le fichier `firmware.ota.bin` produit vers `update_firmware.bin`.
+3. Calculer `md5sum update_firmware.bin`.
+4. Reporter la version et le MD5 dans `manifest_update.json`.
